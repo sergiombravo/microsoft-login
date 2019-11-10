@@ -1,14 +1,32 @@
 import React, { Component } from 'react'
 import { MicrosoftLoginButton } from 'react-social-login-buttons'
 import './style.css'
-import MicrosoftService from './service'
 import {LOGGED_IN} from "./types";
+import Service from "./service";
 
-class MicrosoftLogin extends Component {
+type stateProps = {
+  logged: string | null
+}
 
-  componentWillMount() {
-    this.MsService = new MicrosoftService()
+class MicrosoftLogin extends Component <{},stateProps> {
+  private MsService!: Service;
+
+  async componentWillMount() {
+    this.MsService = new Service()
     this.setState({ logged: localStorage.getItem(LOGGED_IN)})
+  }
+
+  logIn = async () => {
+    const user = await this.MsService.startAsync()
+
+    if (user) {
+      this.setState({ logged: localStorage.getItem(LOGGED_IN) })
+    }
+  }
+
+  logOut = async () => {
+    this.MsService.logOut()
+    this.setState({ logged: null })
   }
 
   render() {
@@ -19,18 +37,13 @@ class MicrosoftLogin extends Component {
         {logged &&
           <span
             style={{ display: 'block', cursor: 'pointer' }}
-            onClick={() => {
-              this.MsService.logOut()
-              this.setState({ logged: null })
-            }
-          }>Log out</span>
+            onClick={this.logOut}
+          >Log out</span>
         }
         {!logged &&
         <MicrosoftLoginButton
           style={{outline: 'none'}}
-          onClick={async () => {
-            await this.MsService.startAsync()
-          }}
+          onClick={this.logIn}
           />}
       </div>
     )
