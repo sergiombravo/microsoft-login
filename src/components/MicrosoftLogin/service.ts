@@ -1,5 +1,6 @@
 import { UserAgentApplication, AuthError } from 'msal'
 import {LOGGED_IN} from "./types";
+import axios from 'axios'
 
 // INFO FROM https://spblog.net/post/2019/06/04/building-single-page-application-with-react-msal-js-and-pnpjs
 
@@ -8,6 +9,7 @@ const TENANT              = 'f8702755-2f21-4af5-96c6-c17321b82538\n'
 const AUTHORITY           = 'https://login.microsoftonline.com/common'
 const REDIRECT_URI        = 'http://localhost:3000'
 const API_URL_AUTHORIZE   = 'https://login.microsoftonline.com/' + TENANT + '/oauth2/v2.0/authorize'
+const API_GRAPH           = 'https://graph.microsoft.com/v1.0/me'
 
 const MSAL_CONFIG = {
   authority: AUTHORITY,
@@ -15,14 +17,17 @@ const MSAL_CONFIG = {
 }
 
 const GRAPH_SCOPES = [
-  "user.read"
+  "user.read",
+  "calendars.read"
 ]
 
 const AUTH_PARAMS = {
   scopes: GRAPH_SCOPES
 }
 
-class Service {
+class Service  {
+  private authProvider: UserAgentApplication;
+
   constructor() {
     this.authProvider = new UserAgentApplication({
       auth: MSAL_CONFIG
@@ -34,13 +39,50 @@ class Service {
     })
   }
 
+  getProvider() {
+    return this.authProvider;
+  }
+
   logOut() {
+    this.authProvider.logout()
     localStorage.removeItem(LOGGED_IN);
   }
 
   startAsync = async () => {
-    await this.authProvider.loginRedirect(AUTH_PARAMS);
+    await this.authProvider.loginPopup(AUTH_PARAMS)
+    if (this.authProvider.getAccount()) {
+      localStorage.setItem(LOGGED_IN, this.authProvider.getAccount().accountIdentifier);
+
+      return this.authProvider.getAccount()
+    }
+
+    return false
   };
+
+  getUserData = async (params: string = "") => {
+    try {
+      const {accessToken} = await this.authProvider.acquireTokenSilent(AUTH_PARAMS)
+
+      const headers = {
+        'Authorization': `Bearer ${accessToken}`
+      }
+
+      let user = await axios.get(
+          API_GRAPH + params,
+          {headers}
+      )
+
+      if (user.data) {
+
+        console.log(user.data)
+        return user.data
+      }
+    } catch(error) {
+      console.log(error.message)
+    }
+
+    return null
+  }
 }
 
 export default Service
